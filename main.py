@@ -1,30 +1,29 @@
-from echo import Echo
-from signals import EncoderVendor1
-import time
+import asyncio
+import logging
 
-echo = Echo()
+from api.grpc_pub_sub import GrpcPubSub
+from controllers.main_controller import MainController
+from hal.mock_bot_client import MockBotClient
 
-for i in range(5):
-    print(echo.repeat('Hello, World!'))
-    enc = EncoderVendor1(amplitude=1000, frequency_hz=0.5)
- 
-    print(f"{'t (s)':>6} {'position':>10} {'velocity':>10}   waveform")
-    print("-" * 60)
- 
-    for i in range(40):
-        enc.read()                      # sample the encoder
-        t = i * 0.1
- 
-        # simple ASCII bar: map position (-A..+A) onto a 0..40 column
-        col = int((enc.position / enc._amplitude + 1) * 20)
-        bar = " " * col + "*"
- 
-        print(f"{t:6.1f} {enc.position:10d} {enc.velocity:10d}   {bar}")
-        time.sleep(0.1)
-
-# create a run forever loop with two async nodes
-# 1. for the main state machine
-# 2. one for the IO handling
+# Entry point wires concrete impls into MainController. Stubs still raise
+# NotImplementedError — see TODOs in api/grpc_pub_sub.py, hal/mock_bot_client.py,
+# and sim/mock_bot_server.py. Tests use in-memory fakes and run today.
 
 
-# App that has two async properties. One loop for acceptng IO and the other for handling IO
+async def main() -> None:
+    logging.basicConfig(level=logging.INFO)
+    logging.info("starting main program")
+
+    pub_sub = GrpcPubSub()
+    await pub_sub.start()
+
+    controller = MainController(
+        pub_sub=pub_sub,
+        signal_repo=MockBotClient(),
+        gripper=None,  # TODO: pick a concrete GripperRepository impl
+    )
+    await controller.run()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

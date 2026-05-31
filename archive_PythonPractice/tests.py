@@ -1,6 +1,6 @@
 import unittest
-from echo import Echo
-from signals import EncoderVendor1, I_Encoder
+from PythonPractice.echo import Echo
+from PythonPractice.signals import EncoderVendor1, I_Encoder
 
 class TestEcho(unittest.TestCase):
     def setUp(self):

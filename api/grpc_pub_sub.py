@@ -1,0 +1,44 @@
+"""gRPC implementation of the PubSub interface.
+
+To regenerate stubs from api/proto/orchestration.proto, from project root:
+
+    python -m grpc_tools.protoc \
+        -I api/proto \
+        --python_out=api/proto \
+        --grpc_python_out=api/proto \
+        api/proto/orchestration.proto
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+
+from commands.schema import Command
+
+log = logging.getLogger(__name__)
+
+
+class GrpcPubSub:
+    """gRPC server that translates inbound RPCs into Command objects on a queue.
+
+    TODO: implement once protoc has been run.
+        - Start grpc.aio.server bound to host:port.
+        - Register OrchestrationServicer that turns SendCommand RPCs into
+          Command objects and puts them on self._inbox.
+        - publish() writes to a streamed StatusEvent channel.
+    """
+
+    def __init__(self, host: str = "0.0.0.0", port: int = 50051):
+        self.host = host
+        self.port = port
+        self._inbox: asyncio.Queue = asyncio.Queue()
+
+    async def start(self) -> None:
+        raise NotImplementedError("TODO: implement gRPC server startup")
+
+    async def recv(self) -> Command:
+        return await self._inbox.get()
+
+    async def publish(self, event: dict) -> None:
+        # TODO(streaming-telemetry): push to StreamStatus subscribers.
+        log.debug("publish %s", event)

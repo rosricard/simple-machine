@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package mockbot;
+
+service Robot {
+  rpc MoveTo(MoveToRequest) returns (MoveAck);
+  rpc Home(HomeRequest) returns (MoveAck);
+  rpc Abort(AbortRequest) returns (MoveAck);
+  rpc ReadState(StateRequest) returns (RobotState);
+}
+
+message Vec3 { double x = 1; double y = 2; double z = 3; }
+message Quaternion { double w = 1; double x = 2; double y = 3; double z = 4; }
+message Pose { Vec3 position = 1; Quaternion orientation = 2; }
+
+message MoveToRequest { Pose target = 1; }
+message HomeRequest {}
+message AbortRequest {}
+message StateRequest {}
+
+message MoveAck { bool ok = 1; string message = 2; }
+message RobotState {
+  Pose current_pose = 1;
+  string state = 2;  // TODO: replace with enum
+}

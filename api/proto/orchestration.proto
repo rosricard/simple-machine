@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package orchestration;
+
+service Orchestration {
+  rpc SendCommand(CommandRequest) returns (CommandAck);
+  // TODO(streaming-telemetry):
+  // rpc StreamStatus(StatusRequest) returns (stream StatusEvent);
+}
+
+enum CommandType {
+  COMMAND_TYPE_UNSPECIFIED = 0;
+  PICK_AND_PLACE = 1;
+  HOME = 2;
+  ABORT = 3;
+  STATUS = 4;
+}
+
+message CommandRequest {
+  string id = 1;
+  CommandType type = 2;
+  string routine_id = 3;  // fixed routines for now
+  // TODO(parameterized-routines): add source_pose, target_pose, frame fields.
+}
+
+message CommandAck {
+  string id = 1;
+  bool accepted = 2;
+  string message = 3;
+}
