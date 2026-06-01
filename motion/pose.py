@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Vec3:
+    """Location of something in 3D space, in meters. No orientation information."""
     x: float
     y: float
     z: float
@@ -20,6 +21,8 @@ class Vec3:
 
 @dataclass(frozen=True)
 class Quaternion:
+    """Encodes how something is rotated in space. We use quaternions to avoid gimbal lock and singularities."""
+
     w: float
     x: float
     y: float

@@ -19,7 +19,6 @@ is it relevant to include any of the following?
 - Tool frame
 - Tool centerpoint
 
-
 # Signal Repository
 This is the repository that interfaces with the robot and will send the trajectory command.
 this should be built with an interface that would allow hardware abstraction so that the application can be hardware agnostic (ex: Fanuc vs Kuka). Beyond defining simply an interface, also define a 
