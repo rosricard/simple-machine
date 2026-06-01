@@ -9,7 +9,6 @@ from hal.mock_bot_client import MockBotClient
 # NotImplementedError — see TODOs in api/grpc_pub_sub.py, hal/mock_bot_client.py,
 # and sim/mock_bot_server.py. Tests use in-memory fakes and run today.
 
-
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
     logging.info("starting main program")

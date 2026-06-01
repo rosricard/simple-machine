@@ -28,10 +28,10 @@ class GrpcPubSub:
         - publish() writes to a streamed StatusEvent channel.
     """
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 50051):
-        self.host = host
-        self.port = port
-        self._inbox: asyncio.Queue = asyncio.Queue()
+    def __init__(self, host: str = "0.0.0.0", port: int = 50051) -> None:
+        self.host: str = host
+        self.port: int = port
+        self._inbox: asyncio.Queue[Command] = asyncio.Queue()
 
     async def start(self) -> None:
         raise NotImplementedError("TODO: implement gRPC server startup")

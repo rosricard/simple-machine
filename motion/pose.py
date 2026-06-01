@@ -22,7 +22,7 @@ class Vec3:
 @dataclass(frozen=True)
 class Quaternion:
     """Encodes how something is rotated in space. We use quaternions to avoid gimbal lock and singularities."""
-
+    "This won't be constructed by hand, we'll retrieve it from a library. w =1, x=0,y=0,z=0 means no rotation"
     w: float
     x: float
     y: float

@@ -11,9 +11,9 @@ from motion.pose import Pose
 
 
 class MockBotClient:
-    def __init__(self, host: str = "localhost", port: int = 50061):
-        self.host = host
-        self.port = port
+    def __init__(self, host: str = "localhost", port: int = 50061) -> None:
+        self.host: str = host
+        self.port: int = port
 
     async def move_to(self, pose: Pose) -> None:
         raise NotImplementedError("TODO: gRPC call to Robot.MoveTo")

@@ -1,45 +1,125 @@
-# Problem statement:
-Build a small machine that does robotic pick and place
+# simple-machine
 
-# Input
-How do you receive inputs from orchestration system? There's a manual and auto mode but the interface can be shared. However, manual mode itself will likely have different requirements.
-Could make some assumptions that the interface will be compiled into a json data structure. Create an interface that allows the robot to do one of 3 different pick and place tasks.
+A small machine that does robotic pick-and-place. Receives commands from an external
+orchestration system over gRPC and dispatches them through a vendor-agnostic robot HAL.
 
-# Main Controller - Event Driven Layer
-This is the event driven layer that handles the system state. Overall states will be Abort, Home, Start. It also needs to handle the commands being sent to the robot.
+This repo contains the application layer (state machine, command dispatch, hardware
+abstraction). The vendor controller handles trajectory generation and inverse
+kinematics; this application only deals with cartesian goals in well-defined frames.
 
-Suggest and of the following that would be relevant to include for control of a robot doing a point to point pick and place application:
-- Any relevant robotic theory
-is it relevant to include any of the following? 
-- Jacobians 
-- Inverse kinematics
-- Basic fundamentals
-- Manipulation frame
-- User frame
-- Tool frame
-- Tool centerpoint
+## Status
 
-# Signal Repository
-This is the repository that interfaces with the robot and will send the trajectory command.
-this should be built with an interface that would allow hardware abstraction so that the application can be hardware agnostic (ex: Fanuc vs Kuka). Beyond defining simply an interface, also define a 
+**Scaffold + fakes + tests.** The architecture is laid out and the core controller
+logic is exercised by in-memory fakes (`FakePubSub`, `FakeSignalRepo`, `FakeGripper`).
+Concrete I/O implementations are stubbed pending integration — see Scope below.
 
-# Out of scope for this assignment - Actuation layer
+Run the tests:
 
-This layer needs to be more deterministic (if kept in python it would been to have some sort of async IO to deal with the python GIL because we can't get the same speed or determinism that you could with an RTOS).
-For the purposes of this interview, we'll 
+```bash
+pip install pytest pytest-asyncio
+pytest tests/
+```
 
-# Control Device library 
-Library of HALs that would be designed with interfaces to keep the code base vendor agnostic
+## Scope
 
-# Mock bot
-so that we can do SIL testing of our application and not require hardware. This would be a separate async process that would run to emulate the hardware 
+### In scope
 
+- Application-layer state machine (`IDLE / HOMING / RUNNING / ABORTING / ERROR`)
+- Vendor-agnostic robot HAL (`SignalRepository`, `GripperRepository` Protocols)
+- gRPC command intake hidden behind a `PubSub` Protocol so domain code doesn't import `grpc`
+- Three named pick-and-place routines
+- SIL testing path: mock bot as a separate process speaking the same wire protocol
+- Frame conventions (user → base composition) at the application boundary
+- Motion-authority lifecycle in the `SignalRepository` Protocol
 
-# Assumptions 
-1. the task options being sent are parametrized by source / target post (or do we want a hard coded routine?)
-2. Orchestration layer speaks json over the pub/sub bus (MQTT or NATs)?
-3. Vendor controller handles the trajectory generation and inverse kinematics; this app will handle cartesian goals
-4. assuming single arm, single gripper
-5. this layer is event driven - no hard real time requirement
-6. manual vs auto differ in command source and cadence and not schema
+### Out of scope
 
+- **Actuation layer.** Vendor controller handles trajectory generation, inverse
+  kinematics, and servo-loop timing. Real-time determinism is the controller's problem.
+- **Perception.** No camera or vision integration. Routines use pre-taught poses
+  authored in user frame; nothing detection-driven.
+- **`GrpcPubSub.start()` implementation.** The gRPC service binding raises
+  `NotImplementedError`. The Protocol contract and the rest of the stack are designed
+  around it; the actual `grpc.aio.server` wiring is left for integration.
+- **`MockBotClient` implementation.** The SIL client/server skeleton exists
+  (`hal/mock_bot_client.py`, `sim/mock_bot_server.py`) but the gRPC stubs are not
+  generated and the network calls are stubbed.
+- Custom-arm kinematics (joint-level control, IK, FK, Jacobians).
+- Multi-robot coordination.
+
+## Robotics primitives — decisions
+
+| Concept | Decision | Rationale |
+|---|---|---|
+| Frames (base / user / tool, TCP) | In scope | Pick/place poses authored in user frame, composed to base before send |
+| Inverse / forward kinematics | Out of scope | Vendor controller handles IK from cartesian goals |
+| Jacobians | Out of scope | Point-to-point pick-and-place doesn't need velocity/force control or singularity avoidance |
+| TCP definition | Configured on the controller | Vendor knows about it; we just send cartesian targets and the controller positions the TCP |
+| "Manipulation frame" | Not used | Not standard vendor terminology. We use user frame (workpiece) and tool frame (TCP) per Fanuc / KUKA / ABB conventions |
+
+See `architecture.md` for the full design rationale behind each.
+
+## Architecture (one paragraph)
+
+Five layers, each hiding the layer below behind a Protocol so the application is
+testable in isolation:
+
+1. **Orchestration** (external) — speaks gRPC, hidden behind a `PubSub` Protocol.
+2. **MainController** — state machine + asyncio queue; listener and processor run
+   concurrently via `asyncio.gather`.
+3. **SignalRepository / GripperRepository** — Protocols defining the robot HAL;
+   gripper is on its own channel for independent timing and safety.
+4. **Vendor impls / MockBotClient** — concrete adapters (Fanuc, KUKA, or the SIL
+   mock bot in a separate process speaking the same gRPC wire).
+5. **Actuation** — out of scope, owned by the vendor controller.
+
+Full details in [`architecture.md`](architecture.md).
+
+## File structure
+
+```
+.
+├── main.py                          Entry point: wires concrete impls into MainController
+├── controllers/
+│   ├── main_controller.py           Event-driven state machine
+│   └── states.py                    SystemState enum
+├── api/
+│   ├── pub_sub.py                   PubSub Protocol (transport-agnostic)
+│   ├── grpc_pub_sub.py              gRPC implementation (stubbed — see Scope)
+│   └── proto/
+│       └── orchestration.proto
+├── commands/
+│   ├── schema.py                    Command dataclass + CommandType enum
+│   └── routines.py                  Named routine IDs (task_a / task_b / task_c)
+├── motion/
+│   └── pose.py                      Vec3, Quaternion, Pose, Frame
+├── hal/
+│   ├── signal_repository.py         Robot motion Protocol
+│   ├── gripper_repository.py        Gripper Protocol (separate I/O)
+│   ├── mock_bot_client.py           SignalRepository → mock_bot_server (stubbed)
+│   ├── fanuc.py                     Fanuc vendor stub
+│   └── kuka.py                      KUKA vendor stub
+├── sim/
+│   ├── mock_bot.proto               Mock-bot wire protocol
+│   └── mock_bot_server.py           Standalone process emulating a robot (stubbed)
+└── tests/
+    └── test_main_controller.py      FakePubSub / FakeSignalRepo / FakeGripper
+```
+
+## Future work
+
+- Parameterized routine poses (currently fixed task IDs referenced by `routine_id`).
+- Server-streaming telemetry RPC for live status (currently per-command ack only).
+- Upgrade `asyncio.gather` to `asyncio.TaskGroup` on Python 3.11+ for cleaner
+  cancellation semantics.
+- Typed `Event` and `RobotState` dataclasses replacing dict payloads.
+- Concrete `GrpcPubSub` and `MockBotClient` implementations once proto stubs are
+  generated (`python -m grpc_tools.protoc ...`).
+- Contract tests verifying every concrete `SignalRepository` implementation
+  (Fanuc, KUKA, MockBotClient) satisfies the same behavioral expectations.
+
+## References
+
+- [FANUC ROS 2 Driver](https://github.com/FANUC-CORPORATION/fanuc_driver) — reference
+  for the vendor interface a `FanucRepository` would wrap, including the motion-authority
+  lifecycle that informs our `SignalRepository` Protocol.

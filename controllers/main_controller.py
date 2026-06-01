@@ -19,7 +19,7 @@ class MainController:
     signal_repo: SignalRepository
     gripper: GripperRepository
     state: SystemState = SystemState.IDLE
-    queue: asyncio.Queue = field(default_factory=asyncio.Queue)
+    queue: asyncio.Queue[Command] = field(default_factory=asyncio.Queue)
 
     async def run(self) -> None:
         # asyncio.gather cancels siblings on first exception.

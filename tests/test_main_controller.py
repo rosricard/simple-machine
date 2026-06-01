@@ -15,11 +15,12 @@ import pytest
 
 from commands.schema import Command, CommandType
 from controllers.main_controller import MainController
+from motion.pose import Pose
 
 
 class FakePubSub:
     def __init__(self) -> None:
-        self._queue: asyncio.Queue = asyncio.Queue()
+        self._queue: asyncio.Queue[Command] = asyncio.Queue()
         self.published: List[dict] = []
 
     async def push(self, cmd: Command) -> None:
@@ -36,7 +37,7 @@ class FakeSignalRepo:
     def __init__(self) -> None:
         self.calls: List[str] = []
 
-    async def move_to(self, pose) -> None:
+    async def move_to(self, pose: Pose) -> None:
         self.calls.append(f"move_to {pose}")
 
     async def home(self) -> None:
@@ -57,7 +58,7 @@ class FakeGripper:
 
 
 @pytest.mark.asyncio
-async def test_main_controller_receives_command():
+async def test_main_controller_receives_command() -> None:
     pub_sub = FakePubSub()
     controller = MainController(
         pub_sub=pub_sub,
