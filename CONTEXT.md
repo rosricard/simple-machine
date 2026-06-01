@@ -18,6 +18,7 @@ Conceptual layers:
 
 | Topic | Decision |
 |---|---|
+| Overall architecture | **Hexagonal / Ports-and-Adapters.** `interfaces/` holds Protocols (ports); `adapters/` holds concrete impls. Domain code (`controllers/`, `commands/`, `motion/`) depends only on `interfaces/`. Tests depend only on `interfaces/` + domain, never on `adapters/`. |
 | Orchestration transport | gRPC. Hide behind a `PubSub` Protocol so the rest of the code doesn't import gRPC. |
 | Tasks | Fixed routines for now (`task_a`, `task_b`, `task_c`). TODO: parameterized poses. |
 | Kinematics | Assume vendor controller handles IK + trajectory generation; this app sends cartesian goals. TODO: custom-arm support (joint-level + IK / FK / Jacobian). |
@@ -53,32 +54,34 @@ Point-to-point pick-and-place with a vendor controller (Fanuc / Kuka):
 
 ```
 python/
-├── main.py                                wires Grpc + MockBotClient into MainController
-├── controllers/
+├── main.py                                composition root — wires adapters into MainController
+├── interfaces/                            PORTS — Protocols only, no I/O dependencies
+│   ├── pub_sub.py                         PubSub Protocol — transport-agnostic
+│   ├── signal_repository.py               robot motion Protocol (move_to/home/abort/read_state)
+│   └── gripper_repository.py              separate gripper Protocol (open/close/read_state)
+├── adapters/                              ADAPTERS — concrete impls of the ports
+│   ├── grpc_pub_sub.py                    gRPC impl of PubSub (start() raises NotImplementedError)
+│   ├── mock_bot_client.py                 SignalRepository impl that talks to mock-bot process
+│   ├── fanuc.py                           vendor SignalRepository stub
+│   ├── kuka.py                            vendor SignalRepository stub
+│   └── proto/orchestration.proto          service + message defs (gRPC adapter's wire protocol)
+├── controllers/                           DOMAIN — depends only on interfaces/
 │   ├── main_controller.py                 @dataclass; listener + processor via asyncio.gather
 │   └── states.py                          SystemState enum (IDLE, HOMING, RUNNING, ABORTING, ERROR)
-├── api/
-│   ├── pub_sub.py                         PubSub Protocol — transport-agnostic
-│   ├── grpc_pub_sub.py                    gRPC impl skeleton (start() raises NotImplementedError)
-│   └── proto/orchestration.proto          service + message defs
-├── commands/
+├── commands/                              DOMAIN
 │   ├── schema.py                          Command dataclass, CommandType enum
 │   └── routines.py                        3 fixed routine IDs (placeholders)
-├── motion/
+├── motion/                                DOMAIN
 │   └── pose.py                            Vec3, Quaternion, Pose, Frame
-├── hal/
-│   ├── signal_repository.py               robot motion Protocol (move_to/home/abort/read_state)
-│   ├── gripper_repository.py              separate gripper Protocol (open/close/read_state)
-│   ├── mock_bot_client.py                 SignalRepository impl that talks to mock-bot process
-│   ├── fanuc.py                           vendor stub
-│   └── kuka.py                            vendor stub
-├── sim/
+├── sim/                                   SIL test double — separate process
 │   ├── mock_bot.proto                     mock-bot wire protocol (Robot service)
-│   └── mock_bot_server.py                 standalone process: python -m sim.mock_bot_server
-├── tests/
+│   └── mock_bot_server.py                 standalone: python -m sim.mock_bot_server
+├── tests/                                 depends only on interfaces/ + domain
 │   └── test_main_controller.py            FakePubSub / FakeSignalRepo / FakeGripper
 └── readme.md                              original problem statement
 ```
+
+**Dependency rule**: arrows point inward only. `adapters/` and `tests/` may import from `interfaces/` and domain (`controllers/`, `commands/`, `motion/`). `interfaces/` and domain must NOT import from `adapters/`. `main.py` is the only place that imports `adapters/`.
 
 ## Key objects
 
@@ -105,16 +108,16 @@ python/
 - Requires `pip install pytest pytest-asyncio`.
 
 **Stubbed (next things to fill in)**:
-- `GrpcPubSub.start()` in `api/grpc_pub_sub.py` — needs grpc.aio.server + servicer.
-- `MockBotClient.*` in `hal/mock_bot_client.py` — needs gRPC client calls.
+- `GrpcPubSub.start()` in `adapters/grpc_pub_sub.py` — needs grpc.aio.server + servicer.
+- `MockBotClient.*` in `adapters/mock_bot_client.py` — needs gRPC client calls.
 - `sim/mock_bot_server.py` — needs RobotServicer impl.
 - `MainController._dispatch()` — needs state-machine + routine execution.
 
 **Proto stub generation** (when ready):
 ```sh
 python -m grpc_tools.protoc \
-  -I api/proto --python_out=api/proto --grpc_python_out=api/proto \
-  api/proto/orchestration.proto
+  -I adapters/proto --python_out=adapters/proto --grpc_python_out=adapters/proto \
+  adapters/proto/orchestration.proto
 
 python -m grpc_tools.protoc \
   -I sim --python_out=sim --grpc_python_out=sim \
@@ -123,10 +126,10 @@ python -m grpc_tools.protoc \
 
 ## TODO markers by category (in-code)
 
-- **`parameterized-routines`** — `commands/schema.py`, `commands/routines.py`, `api/proto/orchestration.proto`
-- **`custom-arm`** — `motion/pose.py`, `hal/signal_repository.py`
+- **`parameterized-routines`** — `commands/schema.py`, `commands/routines.py`, `adapters/proto/orchestration.proto`
+- **`custom-arm`** — `motion/pose.py`, `interfaces/signal_repository.py`
 - **`manual-mode`** — `commands/schema.py`
-- **`streaming-telemetry`** — `api/grpc_pub_sub.py`, `controllers/main_controller.py`, `api/proto/orchestration.proto`
+- **`streaming-telemetry`** — `adapters/grpc_pub_sub.py`, `controllers/main_controller.py`, `adapters/proto/orchestration.proto`
 - **`upgrade to asyncio.TaskGroup`** — `controllers/main_controller.py` (Python 3.11+)
 - **Misc** — typed `Event` / `RobotState` dataclasses to replace `dict`; mock-bot servicer impl; integration tests with subprocess fixture.
 

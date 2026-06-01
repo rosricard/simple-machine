@@ -1,7 +1,12 @@
 """Unit test for MainController using in-memory fakes (no gRPC, no subprocess).
 
-Requires pytest-asyncio:
-    pip install pytest pytest-asyncio
+Uses stdlib unittest.IsolatedAsyncioTestCase (Python 3.8+) — no pytest-asyncio
+or any third-party test dependency needed.
+
+Run from the project root:
+    python -m unittest tests.test_main_controller
+    # or discover all:
+    python -m unittest discover
 
 TODO: add tests/test_grpc_integration.py that spins up a real grpc.aio.server
 and a sim.mock_bot_server subprocess fixture.
@@ -9,9 +14,9 @@ and a sim.mock_bot_server subprocess fixture.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import unittest
 from typing import List
-
-import pytest
 
 from commands.schema import Command, CommandType
 from controllers.main_controller import MainController
@@ -57,19 +62,26 @@ class FakeGripper:
         return {}
 
 
-@pytest.mark.asyncio
-async def test_main_controller_receives_command() -> None:
-    pub_sub = FakePubSub()
-    controller = MainController(
-        pub_sub=pub_sub,
-        signal_repo=FakeSignalRepo(),
-        gripper=FakeGripper(),
-    )
+class MainControllerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_receives_command(self) -> None:
+        pub_sub = FakePubSub()
+        controller = MainController(
+            pub_sub=pub_sub,
+            signal_repo=FakeSignalRepo(),
+            gripper=FakeGripper(),
+        )
 
-    await pub_sub.push(Command(id="1", type=CommandType.HOME))
+        await pub_sub.push(Command(id="1", type=CommandType.HOME))
 
-    task = asyncio.create_task(controller.run())
-    await asyncio.sleep(0.05)
-    task.cancel()
-    # TODO: assert dispatch effects once _dispatch is implemented
-    #   (e.g., that signal_repo.home was called for a HOME command).
+        task = asyncio.create_task(controller.run())
+        await asyncio.sleep(0.05)
+        task.cancel()
+        # Await the cancellation so unittest doesn't warn about a pending task.
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        # TODO: assert dispatch effects once _dispatch is implemented
+        #   (e.g., that signal_repo.home was called for a HOME command).
+
+
+if __name__ == "__main__":
+    unittest.main()

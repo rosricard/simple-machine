@@ -1,13 +1,14 @@
 import asyncio
 import logging
 
-from api.grpc_pub_sub import GrpcPubSub
+from adapters.grpc_pub_sub import GrpcPubSub
+from adapters.mock_bot_client import MockBotClient
 from controllers.main_controller import MainController
-from hal.mock_bot_client import MockBotClient
 
-# Entry point wires concrete impls into MainController. Stubs still raise
-# NotImplementedError — see TODOs in api/grpc_pub_sub.py, hal/mock_bot_client.py,
-# and sim/mock_bot_server.py. Tests use in-memory fakes and run today.
+# Composition root: wires concrete adapters into the domain MainController.
+# Stubs still raise NotImplementedError — see TODOs in adapters/grpc_pub_sub.py,
+# adapters/mock_bot_client.py, and sim/mock_bot_server.py. Tests use in-memory
+# fakes (in tests/) that satisfy the Protocols in interfaces/ and run today.
 
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)

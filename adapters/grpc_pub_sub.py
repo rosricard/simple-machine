@@ -1,12 +1,12 @@
-"""gRPC implementation of the PubSub interface.
+"""gRPC adapter implementing the PubSub Protocol (interfaces/pub_sub.py).
 
-To regenerate stubs from api/proto/orchestration.proto, from project root:
+To regenerate stubs from adapters/proto/orchestration.proto, from project root:
 
     python -m grpc_tools.protoc \
-        -I api/proto \
-        --python_out=api/proto \
-        --grpc_python_out=api/proto \
-        api/proto/orchestration.proto
+        -I adapters/proto \
+        --python_out=adapters/proto \
+        --grpc_python_out=adapters/proto \
+        adapters/proto/orchestration.proto
 """
 from __future__ import annotations
 

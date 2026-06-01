@@ -4,11 +4,11 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 
-from api.pub_sub import PubSub
 from commands.schema import Command
 from controllers.states import SystemState
-from hal.gripper_repository import GripperRepository
-from hal.signal_repository import SignalRepository
+from interfaces.gripper_repository import GripperRepository
+from interfaces.pub_sub import PubSub
+from interfaces.signal_repository import SignalRepository
 
 log = logging.getLogger(__name__)
 
