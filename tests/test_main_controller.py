@@ -16,7 +16,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import unittest
-from typing import List
 
 from commands.schema import Command, CommandType
 from controllers.main_controller import MainController
@@ -25,8 +24,10 @@ from motion.pose import Pose
 
 class FakePubSub:
     def __init__(self) -> None:
+        # initialize a queue of jobs to publish to controller and to keep track of assertions
         self._queue: asyncio.Queue[Command] = asyncio.Queue()
-        self.published: List[dict] = []
+        # keep track of published events for assertions
+        self.published: list[dict] = []
 
     async def push(self, cmd: Command) -> None:
         await self._queue.put(cmd)
@@ -40,7 +41,7 @@ class FakePubSub:
 
 class FakeSignalRepo:
     def __init__(self) -> None:
-        self.calls: List[str] = []
+        self.calls: list[str] = []
 
     async def move_to(self, pose: Pose) -> None:
         self.calls.append(f"move_to {pose}")
