@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "climbing-bot"
+version = "0.1.0"
+description = "Climbing robot control stack (bot FSM orchestration + actuation HAL)"
+authors = ["Mytra"]
+readme = "README.md"
+packages = [{ include = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+python-statemachine = "^2.0"
+# TODO: add real deps (nats-py, hydra-core, omegaconf, protobuf, pymodbus, …)
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pytest-asyncio = "*"
+ruff = "*"
+
+[tool.poetry.scripts]
+climbing-bot = "main:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["test"]
+# src/ holds the top-level packages (interfaces, controller, actuation, …); put it
+# on the path so both src modules and tests import them by bare name.
+pythonpath = ["src"]
+# Marker taxonomy mirrors the test/ layout.
+markers = [
+    "unit: fast, isolated",
+    "integration: cross-component",
+    "sil: software-in-the-loop (mock bot)",
+    "hil: hardware-in-the-loop",
+]
